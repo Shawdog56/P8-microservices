@@ -1,0 +1,60 @@
+services:
+  # Image processor Microservice
+  image-service:
+    build: 
+      context: ./ImgProcService
+      dockerfile: Dockerfile
+    expose:
+      - "8000"
+    environment:
+      - JWT_SECRET=ZqZkOfoBL4AyS1NUKodvk9FZtso8MkijHHbUfrjZlYj
+    restart: unless-stopped
+
+  # Authentication Microservice
+  auth-service:
+    build:
+      context: ./AuthService
+      dockerfile: Dockerfile
+    expose:
+      - "3000"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-db:5432/auth_service
+      - SPRING_DATASOURCE_USERNAME=auth_user
+      - SPRING_DATASOURCE_PASSWORD=19452bcG--
+      - JWT_SECRET=ZqZkOfoBL4AyS1NUKodvk9FZtso8MkijHHbUfrjZlYj
+    depends_on:
+      - postgres-db
+
+  # Database Service
+  postgres-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: 19452bcG--
+      POSTGRES_DB: auth_service
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db-init:/docker-entrypoint-initdb.d
+    expose:
+      - "5432"
+    restart: unless-stopped
+
+  # Api Gateway - Handles frontend
+  gateway:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      # Inject the Nginx routing rules
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      
+      # INJECT THE FRONTEND FILES HERE
+      - ./frontend:/usr/share/nginx/html:ro
+      
+    depends_on:
+      - image-service
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+

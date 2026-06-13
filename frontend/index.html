@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Procesador de Imagenes</title>
+    <style>
+        :root { --primary: #4f46e5; --bg: #0f172a; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); color: white; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .container { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); padding: 2rem; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); width: 400px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); position: relative; }
+        h1 { font-size: 1.5rem; margin-bottom: 1.5rem; text-align: center; color: #818cf8; }
+        label { display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: #94a3b8; }
+        select, input { width: 100%; padding: 10px; margin-bottom: 1rem; border-radius: 8px; border: 1px solid #334155; background: #1e293b; color: white; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; border-radius: 8px; border: none; background: var(--primary); color: white; font-weight: bold; cursor: pointer; transition: transform 0.2s; }
+        button:hover { transform: translateY(-2px); background: #4338ca; }
+        #progressContainer { margin-top: 1.5rem; display: none; }
+        #progressBar { height: 8px; background: var(--primary); border-radius: 4px; width: 0%; transition: width 0.3s; }
+        #statusText { font-size: 0.8rem; color: #94a3b8; margin-top: 8px; text-align: center; }
+        
+        /* Logout Link styling */
+        .logout-btn { background: none; border: none; color: #f43f5e; font-size: 0.85rem; font-weight: normal; width: auto; padding: 0; margin: 0 auto 1.5rem auto; display: block; text-decoration: underline; }
+        .logout-btn:hover { background: none; transform: none; color: #e11d48; }
+
+        /* Magic Single Page App Utility Class */
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="loginView" class="hidden">
+            <h1>Iniciar Sesión</h1>
+            <form id="loginForm" onsubmit="event.preventDefault(); handleLogin();">
+                <label for="usernameInput">Usuario o Correo</label>
+                <input type="text" id="usernameInput" placeholder="ejemplo@correo.com" required>
+
+                <label for="passwordInput">Contraseña</label>
+                <input type="password" id="passwordInput" placeholder="••••••••" required>
+
+                <button type="submit">Ingresar</button>
+            </form>
+        </div>
+
+        <div id="appView" class="hidden">
+            <h1>Procesador de Imágenes</h1>
+            <button type="button" class="logout-btn" onclick="handleLogout()">Cerrar sesión</button>
+
+            <form id="multiImageForm">
+                <label>1. Selecciona el tipo de procesamiento</label>
+                <select id="taskSelect">
+                    <option value="GRAYSCALE">Blanco y Negro</option>
+                    <option value="EDGES">Detección de bordes</option>
+                    <option value="BLUR">Gaussian Blur</option>
+                    <option value="SHARPEN">Mejorar detalles</option>
+                    <option value="THRESHOLD">Umbral binario (Blanco y negro)</option>
+                    <option value="RESIZE">Redimensionar (64x64)</option>
+                </select>
+
+                <label>2. Cargar Imágenes</label>
+                <input type="file" id="imageInput" accept="image/*" multiple>
+                
+                <button type="button" id="sendImagesButton" onclick="sendImages()">Procesar lote</button>
+            </form>
+
+            <div id="progressContainer">
+                <div id="progressBar"></div>
+                <p id="statusText">Listo...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="./static/js/imagesService.js"></script>
+</body>
+</html>
