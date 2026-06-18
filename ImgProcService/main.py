@@ -4,6 +4,7 @@ import base64
 import zipfile
 import cv2
 import numpy as np
+from typing import List, Optional
 import jwt  # Needs: pip install pyjwt
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Depends, status
 from fastapi.responses import StreamingResponse
@@ -35,6 +36,21 @@ class ImageItem(BaseModel):
 
 class ImageList(BaseModel):
     files: list[ImageItem]
+
+
+class TaskItem(BaseModel):
+    name: str
+    sigma: Optional[int] = 7      # Used for BLUR
+    width: Optional[int] = 64     # Used for RESIZE
+    height: Optional[int] = 64    # Used for RESIZE
+
+class ImageItem(BaseModel):
+    filename: str
+    content: str
+
+class ProcessImagesRequest(BaseModel):
+    files: List[ImageItem]
+    tasks: List[TaskItem]
 
 
 # --- SHARED TOKEN VALIDATION DEPENDENCY ---
@@ -102,24 +118,41 @@ async def process_image(
     return StreamingResponse(image_stream, media_type="image/png")
 
 
+# 2. Update the endpoint
 @app.post("/process-images")
 async def post_process_images(
-    files: ImageList,
-    task: str = Query(..., description="Task: GRAYSCALE, EDGES, BLUR, SHARPEN, THRESHOLD"),
+    request: ProcessImagesRequest,
     token_data: dict = Depends(verify_jwt) 
 ):
     zip_buffer = io.BytesIO()
             
     with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED) as zip_file:
-        for idx, file in enumerate(files.files):
+        for idx, file in enumerate(request.files):
             filename = file.filename
             content = base64.b64decode(file.content)
 
             try:
                 if content:
-                    img = decode_image(content)
-                    processed_img = ImageProcessor.process(img, task.upper())
-                    success, buffer = cv2.imencode('.png', processed_img)
+                    img = decode_image(content) # Assuming decode_image is defined elsewhere in your file
+                    
+                    # --- NEW: Loop through all tasks and apply them sequentially ---
+                    for task in request.tasks:
+                        t_name = task.name.upper()
+                        if t_name == "GRAYSCALE":
+                            img = ImageProcessor.to_grayscale(img)
+                        elif t_name == "EDGES":
+                            img = ImageProcessor.detect_edges(img)
+                        elif t_name == "BLUR":
+                            img = ImageProcessor.apply_blur(img, task.sigma)
+                        elif t_name == "SHARPEN":
+                            img = ImageProcessor.sharpen(img)
+                        elif t_name == "THRESHOLD":
+                            img = ImageProcessor.threshold(img)
+                        elif t_name == "RESIZE":
+                            img = ImageProcessor.resize(img, task.width, task.height)
+                    # ---------------------------------------------------------------
+
+                    success, buffer = cv2.imencode('.png', img)
                     
                     if success:
                         zip_file.writestr(f"proc_{idx}_{filename}", buffer.tobytes())
