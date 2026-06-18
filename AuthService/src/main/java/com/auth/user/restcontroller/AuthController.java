@@ -4,6 +4,7 @@ import com.auth.user.config.JwtService;
 import com.auth.user.dto.LoginDto;
 import com.auth.user.dto.UserDto;
 import com.auth.user.entity.User;
+import com.auth.user.repository.RolRepository;
 import com.auth.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @RestController
@@ -30,6 +32,7 @@ public class AuthController {
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository; // Inject your DB repository here
+    private final RolRepository rolRepository;
 
     @PostMapping("/login")
     public ResponseEntity<Map<String, String>> login(@RequestBody LoginDto loginDto) {
@@ -56,33 +59,34 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<Map<String, String>> register(@RequestBody UserDto userDto) {
+    public ResponseEntity<Map<String, String>> register(@RequestBody LoginDto userDto) {
         Map<String, String> response = new HashMap<>();
 
-        if (userRepository.findByUsernameOrEmail(userDto.getUsername()).isPresent()) {
-            response.put("error", "El correo ya está registrado.");
-            return ResponseEntity.badRequest().body(response);
+        try {
+            System.out.println("[CUSTOM-LOG] Registro usuario: " + userDto.getUsername());
+            System.out.println("[CUSTOM-LOG] Contraseña: " + userDto.getPassword());
+
+            if (userRepository.findByUsernameOrEmail(userDto.getUsername()).isPresent()) {
+                response.put("error", "El correo ya está registrado.");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            User newUser = new User();
+            newUser.setUsername(userDto.getUsername());
+            newUser.setEmail(userDto.getUsername());
+            newUser.setPassword(passwordEncoder.encode(userDto.getPassword()));
+            newUser.setRoles(Set.of(rolRepository.findByDescription("ROLE_USER").orElseThrow(() -> new RuntimeException("No se ha encontrado el rol para asignar al usuario"))));
+
+            System.out.println("[CUSTOM-LOG] Registro usuario guardar: " + newUser.getUsername());
+            System.out.println("[CUSTOM-LOG] Contraseña guardar: " + newUser.getPassword());
+
+            userRepository.save(newUser);
+            response.put("message", "Usuario registrado exitosamente.");
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (Exception e) {
+            System.out.println("[CUSTOM-LOG] Error al registrar usuario: " + e.getMessage());
+            response.put("error", "Error al registrar usuario: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
-
-        User newUser = new User();
-        newUser.setEmail(userDto.getUsername());
-
-        newUser.setPassword(passwordEncoder.encode(userDto.getPassword()));
-
-        userRepository.save(newUser);
-        org.springframework.security.core.userdetails.User userDetails = new org.springframework.security.core.userdetails.User(
-                newUser.getUsername(),
-                newUser.getPassword(),
-                newUser.getRoles()
-                        .stream()
-                        .map(rol -> new SimpleGrantedAuthority(
-                                rol.getDescription()))
-                        .collect(Collectors.toSet()));
-
-        String jwtToken = jwtService.generateToken(userDetails);
-
-        response.put("message", "Usuario registrado exitosamente.");
-        response.put("token", jwtToken);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 }
